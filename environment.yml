@@ -1,0 +1,24 @@
+name: dsp
+channels:
+  - conda-forge
+dependencies:
+  - black
+  - docopt
+  - ipython=8.1
+  - ipykernel
+  - ipywidgets
+  - jupyter=1.0
+  - matplotlib=3.5
+  - numpy=1.22
+  - pandas=1.4
+  - pandas-profiling=1.4
+  - pingouin=0.5
+  - pip
+  - python=3.9
+  - rich=12.0
+  - scikit-learn=1.0
+  - scipy=1.8
+  - seaborn=0.11
+  - statsmodels=0.13
+  - streamlit=1.7
+  - widgetsnbextension=3.6
