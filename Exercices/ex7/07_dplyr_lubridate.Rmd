@@ -1,0 +1,254 @@
+---
+title: "Exercise 7: Data Transformation with dplyr & lubridate"
+output: html_document
+---
+
+*Prepared for the course "TDPS22: Data Science Programming" at Jönköping University, Teacher: [Marcel Bollmann](mailto:marcel.bollmann@ju.se)*
+
+# Exercise 7: Data Transformation with dplyr & lubridate
+
+This notebook contains exercises on data transformation. We're following [Chapter 5 in _R for Data Science_](https://r4ds.had.co.nz/transform.html), but also jump ahead a bit and include [Chapter 16 on "dates and times"](https://r4ds.had.co.nz/dates-and-times.html).
+
+Concretely, we'll look at the five core functions for data manipulation with dplyr – `filter()`, `arrange()`, `select()`, `mutate()`, and `summarise()` –, data grouping via `group_by()`, how to use pipes to chain function calls via `%>%`, and how to work with dates, date-times, and times-of-day.
+
+### Learning Goals
+
+- Know how to _perform data manipulation_ with dplyr.
+- Understand how to _use pipes_.
+- Understand how to _work with dates and date-times_ in lubridate, and _time-of-day_ in hms.
+
+### Useful Resources
+
++ ["Data transformation" in _R for Data Science_](https://r4ds.had.co.nz/transform.html)
++ ["Dates and times" in _R for Data Science_](https://r4ds.had.co.nz/dates-and-times.html)
++ [RStudio Cheatsheets](https://www.rstudio.com/resources/cheatsheets/)
++ [Hands-On Programming with R](https://rstudio-education.github.io/hopr/) _(as a reference)_
+
+```{r}
+library(tidyverse)
+library(lubridate)  # this is part of Tidyverse, but needs to be loaded explicitly
+library(hms)        # this is part of Tidyverse, but needs to be loaded explicitly
+```
+
+- - - 
+
+Let's try loading the **Coffee Chain dataset** that we already saw in Exercise 1:
+
+```{r}
+coffee <- read_csv("data/coffee-chain.csv")
+```
+
+The column types are determined automatically, but they are not ideal — the numeric columns are assigned `dbl` (floating-point numbers) while they are actually only ever integer-valued, and the "Market", "Product", "Product Type" columns are good examples for **factors**, since they are categorical variables with a fixed set of possible values. Of course, there's also the question of how to parse the date into a proper `date` variable, but we'll get to that a little later. The other issues are easy to fix, so let's do that immediately:
+
+```{r}
+coffee <- read_csv("data/coffee-chain.csv", col_types="cfffiii")
+str(coffee)
+```
+
+Look at the help for `read_csv()` if you want to know more about the `col_types` argument ...
+
+- - - 
+
+## Filtering, arranging, selecting, mutating
+
+We first look at using four core dplyr functions individually:
+- `filter()` is a way to select certain _rows_ of a dataset;
+- `arrange()` is a way to sort them;
+- `select()` is a way to select certain _columns_ of a dataset; and
+- `mutate()` is a way to create new columns from old ones.
+
+**1. Select all rows with products of type "Coffee"!**  _(You should end up with 3383 rows. Look at the first line of the output to see the number of rows!)_
+
+```{r}
+# YOUR CODE HERE
+```
+
+**2. Select all rows with negative profit values!** _(You should end up with 686 rows.)_
+
+```{r}
+# YOUR CODE HERE
+```
+
+**3. Select all rows with product type "Coffee" _or_ "Espresso" that also come from the "West" market!** _(You should end up with 1712 rows.)_
+
+```{r}
+# YOUR CODE HERE
+```
+
+**4. Select all rows with "Darjeeling" tea where the _sales_ are greater than 500!** _(You should end up with 76 rows.)_
+
+```{r}
+# YOUR CODE HERE
+```
+
+**5. Arrange the coffee dataset by "Sales" in descending order!** What product had the highest number of sales in the dataset?
+
+```{r}
+# YOUR CODE HERE
+```
+
+**6. Select the "Product" and "Product Type" columns and assign them to a variable `products`!**
+
+```{r}
+# YOUR CODE HERE
+```
+
+Afterwards, you should be able to run the following line of code to get all 13 unique "Product"–"Product Type" combinations:
+
+```{r}
+unique(products)
+```
+
+**7. Find out what the `any_of()` function does, and how to use it to select all columns whose names are included in the `cols` vector below.**
+
+```{r}
+cols <- c("Sales", "Inventory", "Budget", "Profit", "Expenses")
+```
+
+```{r}
+# YOUR CODE HERE
+```
+
+**8. Rearrange the columns so that the "Product Type" column comes first.**
+
+```{r}
+# YOUR CODE HERE
+```
+
+**9. Rename the "Product Type" column to "Product_Type"!** Notice the underscore. If we change the space to an underscore, we don't have to wrap this column name in backticks all the time. Assign the result to the `coffee` variable again so the change persists!
+
+```{r}
+# YOUR CODE HERE
+```
+
+_Bonus:_ The `rename_with()` function changes column names based on a function. For example, we can change them all to lowercase via:
+
+```{r}
+coffee <- rename_with(coffee, tolower)
+```
+
+I'll refer to column names in lowercase from here on.
+
+**10. Create two new columns: a column "revenue" that is the _sum_ of "profit" and "expenses"; and a column "margin" that is "profit" _divided by_ "revenue".** Try to create both columns in a single `mutate()` statement.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**11. Make a new column "profit_above_avg" that is `TRUE` when the "profit" is above the average of the dataset, and `FALSE` otherwise.** _Note:_ You can get the average by calling `mean()`.
+
+```{r}
+# YOUR CODE HERE
+```
+
+- - - 
+
+## Pipes, grouping, and summarising
+
+_Grouping_ and _summarising_ data is mainly done via `group_by()` and `summarise()`. They are often used together, and as such, it's a good idea to take a look at _pipes_ first before we get more into them.
+
+**12. Rewrite the cell below to a version _without pipes_ and _only one function per line_.** Use intermediate variables to store results of function calls. Basically, make sure that you understand what exactly is happening in the pipe.
+
+```{r}
+coffee %>%  
+  pull(profit) %>%
+  sum == 643034
+```
+
+```{r}
+# YOUR CODE HERE
+```
+
+**13. Rewrite the cell below to a version _with pipes_.** You can use the `pull()` function to "pull out" specific columns of the dataset, or use the dot `.` in a pipe as a placeholder for the input variable.
+
+```{r}
+tmp <- filter(coffee, sales > 100)
+tmp <- count(tmp)
+tmp$n
+```
+
+```{r}
+# YOUR CODE HERE
+```
+
+**14. How many instances of each product type are there, and which one generates the most/the least profit, on average?** You'll need to chain a `group_by()` and a `summarise()` call to solve this; try to do this with a pipe (`%>%`) instead of intermediate variables, if possible. You should end up with a tibble that has four rows, one for each product type, and columns for the _name_, _count_, and _mean profit_ of each product type.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**15. What's the _minimum, maximum, average, and median profit_ per "product"?** The resulting tibble should have unique "product" values (e.g., Amaretto, Caffe Latte, ...) as _rows_, and the statistics about the distribution of their "profit" values as _columns_.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**16. Filter out all products where we don't have data from all markets.** This is potentially a bit trickier. You might want to start by finding an expression that gives you the number of unique markets (you've seen an example for getting unique values at the top of this notebook, and you can look at the `length()` function to obtain a count), then try to figure out how to use grouping and filtering to achieve the desired result.
+
+_Note:_ Like in Exercise 1, where we did this before in Python, an indication that you got the right expression is that you should end up with a filtered dataset that has 7426 rows.
+
+```{r}
+# YOUR CODE HERE
+```
+
+- - - 
+
+## Dates and date-times
+
+In this final part, we combine what we've practised so far with `lubridate`, which gives us functionality to work with dates and date-times. Here, [Chapter 16](https://r4ds.had.co.nz/dates-and-times.html) of the book comes into play.
+
+**17. Find the right `lubridate` function to convert the following string to a `date` object!** This string is in the same format as the "Ddate" column of our coffee dataset, so knowing the conversion function will help us work with it.
+
+```{r}
+ddate1 <- "8/21/13"  # a.k.a. 21st August, 2013
+```
+
+```{r}
+# YOUR CODE HERE
+```
+
+**18. Modify the `coffee` dataset so that the "ddate" column contains a parsed "date" object instead of a string!** In the transformed dataset, "ddate" should now be a column of type `<date>` instead of `<chr>`.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**19. Select all _rows_ of the dataset where the _month_ is August.** Use your transformed dataset from the previous question.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**20. How many "ddate"s in the dataset fell on a Sunday, and how many rows do we have for these dates?** I'll give you the answer in table form below – produce a function pipeline that ultimately gives the same result:
+
+|   ddate    | count | wday   |
+|------------|-------|--------|
+| 2012-01-01 | 565   | Sunday |
+| 2012-04-01 | 434   | Sunday |
+| 2012-07-01 | 431   | Sunday |
+| 2013-09-01 | 410   | Sunday |
+| 2013-12-01 | 99    | Sunday |
+
+```{r}
+# YOUR CODE HERE
+```
+
+The "coffee chain" dataset doesn't contain any times or date-times, so we'll try to answer some "artificial" questions that deal with those for now. There will be more opportunities to practice working with times and date-times in the assignment (and potentially other exercises).
+
+**21. How many _seconds_ passed between the birth of _Queen Elizabeth II of the United Kingdom_ and _King Carl XVI Gustaf of Sweden_?** Wikipedia is very specific about the times that royals were born. Concretely, you can find that:
+
+- Queen Elizabeth II was born on April 21, 1926, at 2:40 a.m. GMT in London.
+- Carl XVI Gustaf was born on April 30, 1946, at 10:20 a.m. in Stockholm.
+
+Create date-time objects for the birth of these two monarchs (don't forget about time zones!) and compute the difference _in seconds_ between them!
+
+```{r}
+# YOUR CODE HERE
+```
+
+**22. How many seconds after 10:00:00 is it right now?** This is a use case for the `hms` package, which isn't explicitly described in the book, but is simple & useful enough that we can just take a brief look at its documentation. Check `?hms` or [the "hms" website](https://hms.tidyverse.org/) for a brief overview of the package, and use the `hms()`, `as_hms()`, and `now()` functions to answer the question.
+
+```{r}
+# YOUR CODE HERE
+```
+

@@ -1,0 +1,238 @@
+---
+title: "Exercise 10: Statistical Modeling"
+output: html_document
+---
+
+*Prepared for the course "TDPS22: Data Science Programming" at Jönköping University, Teacher: [Marcel Bollmann](mailto:marcel.bollmann@ju.se)*
+
+# Exercise 10: Statistical Modeling
+
+This notebook contains exercises on statistical modeling in R, focusing on very basic modeling with core R functionality, R's formula syntax, as well as a basic introduction to the Tidymodels ecosystem.  In the end, I also include pointers for how to do some of the more advanced things we did in the Python exercises.
+
+### Learning Goals
+
+- Understand how to _compute, visualize, and evaluate_ simple statistical models in R.
+- Know the basics of _R's formula syntax._
+
+### Useful Resources
+
+This exercise doesn't follow the book as closely as the previous ones, but takes inspiration from the following sources:
+
++ [§23 "Model basics" in _R for Data Science_](https://r4ds.had.co.nz/model-basics.html)
++ ["Get Started" guide from _Tidymodels_](https://www.tidymodels.org/start/)
++ [R Graphics Cookbook](https://r-graphics.org/)
++ [RStudio Cheatsheets](https://www.rstudio.com/resources/cheatsheets/)
+
+- - -
+
+## Extra packages
+
+For parts of this exercise, we'll be using [Tidymodels](https://www.tidymodels.org/) and [ranger](https://www.rdocumentation.org/packages/ranger/versions/0.13.1/topics/ranger).  **I suggest installing them in a separate R session while you work on the first parts of the exercise, as they can take a while to download & install!**
+
+- If you get errors during installation, check if specific packages cause the error. On my system, I had to explicitly re-install `pillar` before I could install `tidymodels` successfully.
+- If you get errors attaching the new packages (e.g. after `library(tidymodels)`), try restarting the R kernel and load everything again.
+
+```{r}
+#install.packages("tidymodels")
+#install.packages("ranger")
+```
+
+```{r}
+library(tidyverse)
+library(modelr)
+library(palmerpenguins)
+penguins <- drop_na(penguins)
+```
+
+- - - 
+
+## Correlation
+
+Let's start with computing and visualising correlations on the penguins dataset, which we've also seen in the Python exercises. We don't follow the book directly here, although it briefly touches on this in [§7.5](https://r4ds.had.co.nz/exploratory-data-analysis.html#covariation).
+
+**1. Compute the Pearson correlation between `bill_length_mm` and `bill_depth_mm`!** Look up the documentation for `cor()` to find out how to do this. Try to do it in at least two ways: (i) calling `cor()` directly on the data; and (ii) using it in a pipe together with `summarise()`. What's the difference between these two approaches?
+
+```{r}
+# YOUR CODE HERE
+```
+
+**2. Compute the _pairwise_ Pearson correlation between all four numeric variables!** In Exercise 5, Q7, we did this with a single call to `pingouin.pairwise_corr()`. How can we get something similar with R? Produce a tibble that looks similar to this:
+
+| **X**              | **Y**               | **cor**    |
+|:-------------------|:--------------------|-----------:|
+| bill_length_mm     | bill_length_mm      |  1.0000000 |
+| bill_length_mm     | bill_depth_mm       | -0.2286256 |
+| bill_length_mm     | flipper_length_mm   |  0.6530956 |
+| ...                | ...                 | ...        |
+
+_Notes:_
+
+- `cor()` can work with more than two variables!
+- Since `cor()` returns a "matrix", not a "tibble", you might want to look at `as_tibble(rownames = ...)` to convert it to one.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**3. Produce a _heat map_ that shows the Pearson correlation between all four variables, with _negative_ and _positive_ values in different colors.** The table you produced in the previous task is the ideal starting point for this. With this, you should be able to:
+
+- Plot a heat map. We haven't seen how to do this yet, but a good place to look it up is the [R Graphics Cookbook](https://r-graphics.org/) (there's also an example in the _R for Data Science_ book).
+- Change the color palette. Correlations, where we want to distinguish between _positive_ and _negative_ values by color, are a prime use case for _divergent_ color palettes. Refer back to [§28](https://r4ds.had.co.nz/graphics-for-communication.html#scales) and the previous exercise, and find an appropriate divergent color palette for the heat map.
+- _Bonus:_ How can we make sure the color palette goes from -1 to +1, so the middle is exactly at 0? (The keyword here is "limits".)
+- _Bonus:_ How can we also plot the numeric values inside the heatmap?
+
+```{r}
+# YOUR CODE HERE
+```
+
+- - - 
+
+## Linear regression
+
+We've already seen in Exercise 6 that we can _plot_ linear regressions easily via `geom_smooth()`. Now, let's see what actually happens under the hood and how we can compute and plot linear regressions explicitly. The techniques used here can be useful e.g. for making predictions with a regression model, and can be transferred to other, more complex models as well.
+
+These exercises roughly follow [§23 "Model basics"](https://r4ds.had.co.nz/model-basics.html), although that chapter goes into a lot of detail about modelling beyond just the implementation in R, so I'll cherry-pick and refer you to individual parts of the chapter throughout.
+
+**4. Compute a linear regression to predict `body_mass_g` from `flipper_length_mm`.** Could you write out the mathematical formula for this regression model? (_Note:_ Look at the help for `lm()`, the lecture slides, or the end of [§23.2](https://r4ds.had.co.nz/model-basics.html#a-simple-model) to get started here.)
+
+```{r}
+# YOUR CODE HERE
+```
+
+**5. Plot the points + the regression line following the technique in [§23.3](https://r4ds.had.co.nz/model-basics.html#visualising-models)!** In other words, make a data grid with model predictions, and recreate the following plot _without_ using `geom_smooth()`:
+
+```{r}
+ggplot(penguins, aes(flipper_length_mm, body_mass_g)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+```{r}
+# YOUR CODE HERE
+```
+
+**6. Plot the _residuals_ of the regression from Q5!** This is also described in [§23.3](https://r4ds.had.co.nz/model-basics.html#visualising-models). Have you seen residuals before? Do you understand what they show? If not, look in the book & compare the residual plot with the plots from the previous task.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**7. Compute linear regressions to predict `bill_depth_mm` from `bill_length_mm` _and_ `species`!** For this, we need to learn a bit about _formulas_ in R and how to use them to describe _interactions_ of variables. This is described in [§23.4](https://r4ds.had.co.nz/model-basics.html#formulas-and-model-families) of the book. Compute linear regression models that predict on `bill_length_mm` and `species` both _without interaction_ (via `+`) and _with interaction_ (via `*`), and show their coefficients.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**8. Plot the points + regression lines for both models!** With `geom_smooth()`, we could produce this as follows:
+
+```{r}
+ggplot(penguins, aes(bill_length_mm, bill_depth_mm, color = species)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+But which formula is `geom_smooth()` using here? Are the regression lines equivalent to our models _with_ or _without_ interaction? Let's plot them explicitly to find out. (You can do separate plots for the two models, or you could even try to plot them in a single plot with different line styles!)
+
+```{r}
+# YOUR CODE HERE
+```
+
+**9. Plot the residuals for both models!** It's easiest to use the facet grid approach shown in the book.
+
+```{r}
+# YOUR CODE HERE
+```
+
+- - -
+
+## Tidymodels
+
+What if we want to use different models than just linear regression? Traditionally, there are many different packages in the R ecosystem specializing in different kinds of models, which can make switching between models a bit tedious. [Tidymodels](https://www.tidymodels.org/) is a collection of packages that attempts to address this by providing a unified interface for model fitting, predicting, and evaluating (among other things).
+
+We'll follow the ["Build a model" section from the "Getting started" guide](https://www.tidymodels.org/start/models/) in this section.
+
+```{r}
+library(tidymodels)
+```
+
+**10. Build and fit the linear regression model with interaction from Q7 (i.e., predict `bill_depth_mm` from `bill_length_mm * species`) with Tidymodels!** Basically, follow the "Build and fit a model" section of the guide, swapping out dataset and variables with ours. _(You don't need to produce the dot-and-whisker plot that relies on another package, but you can, of course.)_
+
+```{r}
+# YOUR CODE HERE
+```
+
+**11. Make predictions for all species given that the _bill length_ is 43mm, and plot the predictions with error bars!** Again, follow the guide.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**12. What is the _root mean squared error (RMSE)_ of this linear regression model when evaluated with _10-fold cross-validation_?** In other words, let's start evaluating this model as a _predictive_ model and calculate some evaluation metrics. The ["Fit a Model with Resampling" section](https://www.tidymodels.org/start/resampling/#fit-resamples) describes how to do this; they're using a different dataset and a different classifier, but we perform exactly the same steps with our linear regression model.
+
+Concretely, we need to:
+
+- define our model via `workflow()` rather than calling `fit()` directly;
+- split our penguins dataset into 10 separate folds; and
+- fit this workflow on all the resampled folds.
+
+(_Note:_ Tidymodels will automatically include RMSE as an evaluation metric for a regression task, no extra steps necessary for this...)
+
+```{r}
+# YOUR CODE HERE
+```
+
+**13. Fit a _random forest regressor_ and plot it similarly to Q8!** Let's try out how easily we can switch out one model for another with Tidymodels. The getting-started guide uses a Bayesian model, but the corresponding library can be a bit difficult to install, so we're using random forests instead.
+
+If you have the `ranger` package installed, you can use the following lines to define a random forest regressor:
+
+```{r}
+library(ranger)
+(rf_mod <-
+     rand_forest(mtry = 2, trees = 1000) %>%
+     set_engine("ranger", importance = "impurity") %>%
+     set_mode("regression"))
+```
+
+The concept behind Tidymodels is that **you don't need to know too much about how the `ranger` package works,** you can just use exactly the same Tidymodels functions to fit, predict, and evaluate as before.  Let's try it out, and combine what we've done in previous sections (before Tidymodels) with what we know now about the Tidymodels pipeline.  Concretely:
+
+- Fit the `rf_mod` model to the data and produce a table with predictions. Note that you shouldn't use a single point this time (like in Q11), but make predictions for the entire range of values. (You can reuse `data_grid()` for that.)
+- Produce a visualization similar to the one in Q8, plotting the random forest predictions as a line overlaid on the data points.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**14. What is the _root mean squared error (RMSE)_ of this random forest regression model when evaluated with _10-fold cross-validation_?** Is it better or worse than the linear regression model? You can do this analogously to Q12, with **one important caveat:** because we have an indicator variable in our formula, I need to import `library(hardhat)` and add `blueprint = default_formula_blueprint()` to the `add_formula(...)` call. (It's not important for us here why exactly this is needed.)
+
+```{r}
+library(hardhat)
+# YOUR CODE HERE
+```
+
+You can use [many more models](https://parsnip.tidymodels.org/articles/Examples.html) with Tidyverse, even [neural networks](https://www.tidymodels.org/learn/models/parsnip-nnet/). If you're curious, try out more!
+
+
+- - -
+
+### What we've _not_ looked into
+
+The Python exercise on statistical modeling covered several more advanced topics. Since R's modeling approach is so different from Python's in many respects, we focused more on the basics in this exercise, but here are some pointers that show how you could implement the other topics from the Python exercises as well.
+
+- Statistical testing is a basic part of Tidymodels that we've not looked at. The ["Learn" section on the Tidymodels website](https://www.tidymodels.org/learn/) has several useful articles introducing this and other features.
+- For feature importance, including _permutation feature importance_, look at the [vip package](https://koalaverse.github.io/vip/).
+- [Dimensionality reduction](https://www.tmwr.org/dimensionality.html) is covered in the book [_Tidy Modeling with R_](https://www.tmwr.org/), which is, as the name suggests, another freely available resource that focuses entirely on Tidymodels.
+
+For reference, here's a quick example with chi-square tests:
+
+- Are the "species" and "sex" variables independent in our dataset? (Yes they are!)
+
+```{r}
+chisq_test(penguins, species ~ sex)
+```
+
+- Are the "species" and "island" variables independent? (No they're not!)
+
+```{r}
+chisq_test(penguins, species ~ island)
+```
+

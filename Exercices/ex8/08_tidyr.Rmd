@@ -1,0 +1,273 @@
+---
+title: "Exercise 8: Data wrangling with tidyr & dplyr"
+output: html_document
+---
+
+*Prepared for the course "TDPS22: Data Science Programming" at Jönköping University, Teacher: [Marcel Bollmann](mailto:marcel.bollmann@ju.se)*
+
+# Exercise 8: Data wrangling with tidyr & dplyr
+
+This notebook contains more exercises on data manipulation, this time focusing on tidying and joining data as described in [Chapter 12](https://r4ds.had.co.nz/tidy-data.html) and [Chapter 13](https://r4ds.had.co.nz/relational-data.html) of the book. We're using a lot of different datasets here to practice this in many different scenarios. We'll also briefly look at some functionality related to strings and factors.
+
+### Learning Goals
+
+- Understand _when a dataset is "tidy"_ and _how to bring a dataset into "tidy" format._
+- Understand _how to use joins_ to combine and filter datasets.
+- Have a basic understanding of _strings_ and _factors_ and how to manipulate them.
+
+### Useful Resources
+
++ [§12 "Tidy data" in _R for Data Science_](https://r4ds.had.co.nz/tidy-data.html)
++ [§13 "Relational data" in _R for Data Science_](https://r4ds.had.co.nz/relational-data.html)
++ [§14 "Strings" in _R for Data Science_](https://r4ds.had.co.nz/strings.html)
++ [§15 "Factors" in _R for Data Science_](https://r4ds.had.co.nz/factors.html)
++ [RStudio Cheatsheets](https://www.rstudio.com/resources/cheatsheets/)
+
+- - -
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+- - -
+
+### Datasets
+
+We're using the Sweden vehicle registration dataset from Assignment 1; a dataset with Swedish population statistics; the coffee chain datasets that we saw before; and a modified sample of the Yu-Gi-Oh! dataset from Exercise 3. We'll try to reproduce some of the data wrangling that we've done before in Python.
+
+```{r}
+vehicle <- read_csv("data/sweden-vehicle.csv")
+population <- read_csv("data/sweden-population.csv", col_types="fDi")
+coffee1 <- read_csv("data/coffee-chain.csv", col_types="cfffiii") %>% mutate(Ddate = mdy(Ddate))
+coffee2 <- read_csv("data/coffee-chain-extra.csv", col_types="cffiii") %>% mutate(Ddate = mdy(Ddate))
+yugioh <- read_csv("data/yu-gi-oh-messy.csv", col_types="ccccc")
+```
+
+For the `vehicle` dataset, the inferred column types are `<chr>` (for strings) and `<dbl>` (for continuous numbers), but actually it would make more sense for them to be _factors_ and _integers_.  Here, you see a way to **mutate** these columns without listing all the numeric columns explicitly (as there are _a lot_ of them!):
+
+```{r}
+vehicle <- mutate(
+             vehicle,
+             region = as.factor(region),
+             fuel = as.factor(fuel),
+             across(where(is.double), as.integer)
+           )
+
+head(vehicle)
+```
+
+- - - 
+
+## Tidy data and pivoting
+
+In Assignment 1, we converted the Sweden vehicle registration dataset into a form like this:
+
+| **region** | **fuel**         | **date**    | **vehicles** |
+|------------|------------------|-------------|--------------|
+| Stockholm  | petrol           | 2006-01-01  | 2824         |
+| Stockholm  | diesel           | 2006-01-01  | 884          |
+| Stockholm  | electricity      | 2006-01-01  | 1            |
+| ...        | ...              | ...         | ...          |
+
+In the Tidyverse, this corresponds to a _tidy dataset_:
+
+- each column corresponds to one _variable_ (region, fuel, date, number of registered vehicles);
+- each row corresponds to one _observation_ (the number of registered vehicles of a certain type, at a specific region and date);
+- each cell contains exactly one _value_.
+
+_(Aside: You could argue that dates or date-times consist of *multiple* values: year, month, day, etc.; however, since these logically belong together and can be represented by & easily transformed as a single data type, it makes sense to treat them as "single" values.)_
+
+**1. Transform the `vehicle` dataset into a tidy version!** It's easiest if you think about this in two steps:
+
+- _pivoting_ the dataset into a _longer form_, i.e., converting the columns "2006M01", "2006M02", ... into a variable that has its own column;
+- _transforming/mutating_ the new column to parse the string into an actual _date_ object.
+
+```{r}
+# YOUR CODE HERE
+```
+
+Next, let's look at a small subset of the Yu-Gi-Oh! dataset which I transformed a little bit to make it "messy":
+
+```{r}
+head(yugioh)
+```
+
+**2. Tidy up this messy `yugioh` dataset!** As it stands, the dataset has multiple features that make it "messy" or "untidy", and which you should address:
+
+- Some variables (level, ATK or _attack points_, DEF or _defense points_) are spread across multiple rows
+- Name, attributes, and sub-types of a card are not repeated on subsequent rows
+- ATK and DEF are represented in a single cell
+
+_Bonus:_ Also convert the columns of the tidied dataset to appropriate types!
+
+```{r}
+# YOUR CODE HERE
+```
+
+**3. Tidy up the "pregnancy" data below!** This exercise is taken from the book. It defines a simple contingency table showing counts of male and female persons and whether they are pregnant or not. Think about the principles of tidy data – i.e., what are the variables, observations, values? – and bring the dataset into a tidy form.
+
+```{r}
+(preg <- tribble(
+  ~pregnant, ~male, ~female,
+  "yes",     NA,    10,
+  "no",      20,    12
+))
+```
+
+```{r}
+# YOUR CODE HERE
+```
+
+Finally, we'll turn to the Coffee Chain dataset again. In Exercise 1, Q8, we used a "pivot table" in Pandas to answer the question "How many instances are there in the dataset of each product–market combination?"  How can we produce a similar-looking table in R?
+
+**4. Produce a "pivot table" from `coffee1` that shows the number of instances for each product–market combination!** The challenge here is that "pivot tables" in Pandas automatically perform some aggregation (e.g., counting the instances) for us, whereas `pivot_longer()` and `pivot_wider()` in `tidyr` _do not do that._ You therefore need to combine pivoting with computing the appropriate aggregation yourself (with functions we practised in Exercise 7).
+
+As a reminder, in the end you should ideally have a table that looks something like this:
+
+| Product            | Central | East | West | South |
+|--------------------|---------|------|------|-------|
+| Decaf Irish Cream  | 1189    | 560  | 789  | 578   |
+| Decaf Espresso     | 227     | 328  | 460  | 134   |
+| Caffe Latte        | 0       | 0    | 148  | 144   |
+| ...                | ...     | ...  | ...  | ...   |
+
+```{r}
+# YOUR CODE HERE
+```
+
+- - - 
+
+## Relational data, _aka_ combining datasets
+
+In Exercise 1, we worked with the Coffee Chain dataset, and (among other things) practiced dataset combination with it. Let's try to recreate some of the things we did there in R.
+
+First, we'd like to **concatenate** the `coffee1` and `coffee2` data. Unfortunately, the book doesn't directly mention how to do this! While technically possible to do with joins in this case, they're not quite the right the tool for the job, as the semantics of joins is that you're merging two datasets based on some kind of "ID" column(s).  Here, it's much better to use `dplyr::bind_rows()`:
+
+```{r}
+coffee <- bind_rows(coffee1, coffee2)
+nrow(coffee)  # confirm we have 15,000 rows
+```
+
+**5. Merge `coffee` with the `markets` variable defined below!**  The resulting dataset should look just like `coffee`, but have an extra column "Market Size" whose value depends on the "Market" value of the given row.
+
+```{r}
+(markets <- tibble(
+    Market = c("Central", "East", "West", "South"),
+    `Market Size` = c("Major", "Major", "Major", "Minor"),
+) %>% mutate_all(as.factor))
+```
+
+```{r}
+# YOUR CODE HERE
+```
+
+**6. Fill in missing data in the `Product Type` column.**  Remember that the "Product Type" column had missing values, which could be uniquely deduced from the "Product" (e.g., a "Darjeeling" product is always a "Tea"). We can solve this here the same way as in Python, by first producing a dataset with all unique `(Product, Product Type)` combinations, and then joining this with our main dataset.
+
+Some notes:
+
+- Think carefully about _which type of join_ is appropriate in this situation.
+- Make sure the final `coffee` dataset only has a single "Product Type" column, not two different ones.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**7. Merge the tidy `vehicle` dataset with the `population` dataset!** The `vehicle` dataset contains vehicle registration per region and date, while the `population` dataset contains population statistics per region and date. Join these two dataset in an appropriate way.
+
+You will notice that the `population` dataset doesn't contain values for the entire date range in the `vehicle` dataset. Which type of join do you have to use when...
+
+- you want to keep _all_ observation in `vehicle`, and accept that sometimes the population count has missing values?
+- you want to keep _only_ those observations where you also have population data?
+
+```{r}
+# YOUR CODE HERE
+```
+
+**8. Use a _filtering join_ to get only those rows in `vehicle` for which we do _not_ have population data!**  Also get a vector of the missing dates.
+
+```{r}
+# YOUR CODE HERE
+```
+
+- - - 
+
+## Strings, factors, and advanced operations
+
+The book has a [chapter on strings and string manipulation](https://r4ds.had.co.nz/strings.html), but we're not going into this here in detail; instead, we'll just look at an example of using functions to automatically convert strings to lower, upper, or title case, which can occasionally come in handy:
+
+```{r}
+mystr <- "this Is a wEIRdly FORMATTED strING."
+str_to_lower(mystr)
+str_to_upper(mystr)
+str_to_title(mystr)
+```
+
+**9. In the `vehicle` dataset, convert the "fuel" column to have all values in title case!**
+
+```{r}
+# YOUR CODE HERE
+```
+
+Another data type that we have used, but not really looked at more closely, is the **factor**. In the `vehicle` dataset, for example, the "region" column is encoded as a factor:
+
+```{r}
+is.factor(vehicle$region)
+```
+
+**10. Make sure that "fuel" is also a factor, and get the possible _levels_ of the factors "region" and "fuel" with the `levels()` command!** If "fuel" is not currently a factor, why do you think that is? Convert it (back) into a factor if necessary!
+
+```{r}
+# YOUR CODE HERE
+```
+
+**11. Re-order the "fuel" factor to be sorted by the number of total vehicle registrations (in the following plot)!** If we produce a simple plot of the number of vehicle registrations _per fuel type_, we can see that "fuel" is ordered alphabetically by default _(note that you need to have tidied up the dataset as in Q1 first for this to work!)_:
+
+```{r}
+vehicle %>%
+  group_by(fuel) %>%
+  summarise(total_vehicles = sum(vehicles)) %>%
+  ggplot(aes(total_vehicles, fuel)) +
+    geom_col()
+```
+
+Change the plot by using `fct_reorder()` so that the different fuel types appear sorted (ascending or descending, your choice) by "total_vehicles"!
+
+```{r}
+# YOUR CODE HERE
+```
+
+**12. Produce the same plot as in Q11, but with the "fuel" factor _re-coded_ as described in the table below!**
+
+| Old value(s)                                  | New value    |
+|-----------------------------------------------|--------------|
+| Diesel                                        | Diesel       |
+| Petrol                                        | Gasoline     |
+| Electricity, Electric Hybrid, Plug-In Hybrid  | Electric     |
+| Ethanol/Ethanol Flexifuel                     | Ethanol      |
+| Gas/Gas Flex, Other Fuels                     | Other        |
+
+```{r}
+# YOUR CODE HERE
+```
+
+**13. Try to use `fct_lump()` to reduce the levels in the plot from Q11.** The book mentions `fct_lump()` as the solution when "you just want to lump together all the small groups to make a plot or table simpler". This sounds like we could use that to make our plot from Q11 simpler, right? Figure out what happens if you try to use `fct_lump()` in connection with the plot from Q11. If the results don't look like you expect, try to figure out why! This is a bit deceiving.
+
+```{r}
+# YOUR CODE HERE
+```
+
+**14. In the `coffee` dataset, make a new column "Top within Product" that is `True` when the "Profit" is within the top 25% of its "Product" category.**
+
+Moving away from factors, this is a task we've seen in the Python exercises, and again, this can be quite challenging! However, it can be solved entirely with the functionality we have learned so far (even in a single pipeline, if you want!), with only one extra ingredient you might need: to get the cutoff for the "top 25%", look up the `quantile()` function.
+
+```{r}
+# YOUR CODE HERE
+```
+
+If you have added the column correctly, the following line should return "3725":
+
+```{r}
+summarise(coffee, x = sum(`Top within Product`))$x
+```
+
