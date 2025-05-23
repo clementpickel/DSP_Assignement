@@ -1,0 +1,349 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+### for all the assigment, i will work on waste data 
+## Assignement 1
+
+
+### calling libraries
+
+```{r}
+library(palmerpenguins)
+library(tidyverse)
+library(readr)
+library(dplyr)
+```
+
+### reading file, dropping missing values, testing str function
+
+```{r}
+emissions <- read_csv("../Total air emissions by greenhouse gas.csv")
+emissions <- drop_na(emissions)
+str(emissions)
+```
+
+### testing head
+
+```{r}
+head(emissions)
+```
+
+### testing tail
+
+```{r}
+tail(emissions)
+```
+
+```{r}
+ggplot(data = emissions)
+```
+
+### checking missing values
+
+```{r}
+colSums(is.na(emissions))
+```
+
+### mutating date as numeric, then filter only row for waste, filtering the row i want (only when it's in kt)
+
+```{r}
+emissions <- emissions %>%
+  mutate(across(`1990`:`2023`, as.numeric))
+
+waste_total <- emissions %>%
+  filter(
+    sector == "WASTE, TOTAL",
+    !`greenhouse gas` %in% c(
+      "Nitrous Oxide (N2O) (t)",
+      "Methane (CH4) (t)"
+    )
+  )
+
+
+# 3) Afficher
+waste_total
+```
+
+### names
+
+```{r}
+names(waste_total)
+```
+
+### pivoting, tracing one line per gas
+
+```{r}
+
+df_long <- waste_total %>%
+  pivot_longer(
+    cols      = `1990`:`2023`,
+    names_to  = "year",
+    values_to = "emission"
+  ) %>%
+  mutate(
+    year     = as.integer(year),
+    emission = as.numeric(emission)
+  )
+
+ggplot(df_long, aes(x = year, y = emission, color = `greenhouse gas`)) +
+  geom_line(size = 1) +
+  labs(
+    title    = "Evolution of emission per gas type",
+    subtitle = "Sector WASTE, TOTAL (excluding N2O and CH4)",
+    x        = "Year",
+    y        = "Emissions",
+    color    = "Gas"
+  ) +
+  theme_minimal()
+```
+
+## Assignement 2
+
+```{r}
+df_long
+```
+
+### calculating correlation between year and emissions, for total greenhouse gases, then getting more precise information with cor.test
+
+```{r}
+total_ghg <- df_long %>%
+  filter(`greenhouse gas` == "Total Greenhouse Gases (kt CO2-eqv.)")
+
+correlation <- cor(total_ghg$year, total_ghg$emission)
+print(paste("Correlation between year emissions:", round(correlation, 4)))
+
+cor.test(total_ghg$year, total_ghg$emission)
+```
+### plotting correlation
+```{r}
+# Scatter plot with trend line
+ggplot(total_ghg, aes(x = year, y = emission)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "Correlation: Year vs Total Greenhouse Gas Emissions",
+    subtitle = paste("Correlation coefficient:", round(correlation, 4)),
+    x = "Year",
+    y = "Total GHG Emissions (kt CO2-eqv.)"
+  ) +
+  theme_minimal()
+```
+
+### creating a linear model, plotting the data, and the regression line
+
+```{r}
+library(modelr)
+
+ghg_model <- lm(emission ~ year, data = total_ghg)
+
+grid_ghg <- total_ghg %>%
+  data_grid(year) %>%
+  add_predictions(ghg_model)
+
+ggplot(total_ghg) +
+  geom_point(aes(year, emission)) +
+  geom_line(aes(year, pred), data = grid_ghg, color = "blue", size = 1) +
+  labs(
+    title = "Linear Regression: Total Greenhouse Gas Emissions Over Time",
+    subtitle = "Waste",
+    x = "Year",
+    y = "Total GHG Emissions (kt CO2-eqv.)"
+  ) +
+  theme_minimal()
+
+summary(ghg_model)
+```
+
+## Assignment 3
+
+### satter plot with styling
+
+```{r}
+ggplot(total_ghg, aes(x = year, y = emission)) +
+  geom_point(size = 3, alpha = 0.7, color = "darkred") +
+  geom_smooth(method = "lm", se = TRUE, color = "blue", fill = "lightblue", alpha = 0.3) +
+  labs(
+    title = "Total Greenhouse Gas Emissions from Waste Sector",
+    subtitle = paste("Strong negative correlation (r =", round(correlation, 3), ")"),
+    caption = "Data: Statistics Canada - Total air emissions by greenhouse gas",
+    x = "Year",
+    y = "Total GHG Emissions (kt CO2-equivalent)"
+  ) +
+  scale_x_continuous(
+    breaks = seq(1990, 2025, by = 5),
+    minor_breaks = seq(1990, 2025, by = 1)
+  ) +
+  scale_y_continuous(
+    breaks = seq(3000, 4500, by = 250),
+    minor_breaks = seq(3000, 4500, by = 50),
+    limits = c(3000, 4500)
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12, color = "gray40"),
+    plot.caption = element_text(size = 10, color = "gray50"),
+    axis.title = element_text(size = 11),
+    panel.grid.major = element_line(color = "gray90"),
+    panel.grid.minor = element_line(color = "gray95", size = 0.5)
+  )
+```
+
+### preparing data with annotation for each decade
+
+```{r}
+important_years <- c(1990, 2000, 2010, 2020)
+annotated_data <- total_ghg %>%
+  filter(year %in% important_years)
+```
+
+### creating annotated plot with highlist of decade year
+
+```{r}
+ggplot(total_ghg, aes(x = year, y = emission)) +
+  geom_point(size = 2, alpha = 0.6, color = "darkblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "red", alpha = 0.3) +
+
+  geom_point(data = annotated_data, size = 4, shape = 1, stroke = 2, color = "red") +
+  geom_label(
+    data = annotated_data,
+    aes(label = paste(year, "\n", round(emission, 0), "kt")),
+    nudge_y = 100,
+    size = 3,
+    color = "darkred"
+  ) +
+  labs(
+    title = "emission evolution per decade",
+    subtitle = "Waste sector emissions with highlighted decade markers",
+    x = "Year",
+    y = "Total GHG Emissions (kt CO2-eqv.)"
+  ) +
+  theme_light() +
+  theme(aspect.ratio = 0.6)
+```
+
+### confidence interaval function 
+
+```{r}
+computeCI <- function(model, newdata, level = 0.95) {
+  pred <- predict(model, newdata = newdata, se.fit = TRUE)
+  t_val <- qt((1 + level) / 2, df = model$df.residual)
+  ci <- t_val * pred$se.fit
+  return(ci)
+}
+```
+
+### prepared data for future preduction, between 2024 and 2030
+
+```{r}
+future_years <- data.frame(year = 2024:2030)
+future_pred <- predict(ghg_model, newdata = future_years)
+future_ci <- computeCI(ghg_model, future_years)
+
+prediction_data <- data.frame(
+  year = c(total_ghg$year, future_years$year),
+  emission = c(total_ghg$emission, future_pred),
+  type = c(rep("Historical", nrow(total_ghg)), rep("Predicted", nrow(future_years))),
+  ci_lower = c(rep(NA, nrow(total_ghg)), future_pred - future_ci),
+  ci_upper = c(rep(NA, nrow(total_ghg)), future_pred + future_ci)
+)
+```
+
+### plotting confindence interval for prediction 
+
+```{r}
+ggplot(prediction_data, aes(x = year, y = emission)) +
+
+  geom_point(
+    data = filter(prediction_data, type == "Historical"),
+    size = 2, color = "darkblue", alpha = 0.7
+  ) +
+
+  geom_ribbon(
+    data = filter(prediction_data, type == "Predicted"),
+    aes(ymin = ci_lower, ymax = ci_upper),
+    fill = "orange", alpha = 0.3
+  ) +
+
+  geom_point(
+    data = filter(prediction_data, type == "Predicted"),
+    size = 3, color = "orange", shape = 17
+  ) +
+
+  geom_smooth(data = total_ghg, method = "lm", se = FALSE, color = "red") +
+
+  geom_vline(xintercept = 2023.5, linetype = "dashed", alpha = 0.5) +
+  labs(
+    title = "emissions, now and then",
+    subtitle = "waste sector emissions with 95% confidence intervals for predictions",
+    caption = "dashed line separates historical data from projections",
+    x = "Year",
+    y = "Total Emissions (kt CO2-eqv.)"
+  ) +
+  scale_x_continuous(
+    breaks = seq(1990, 2030, by = 5),
+    minor_breaks = seq(1990, 2030, by = 1)
+  ) +
+  scale_color_manual(values = c("Historical" = "darkblue", "Predicted" = "orange")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11, color = "gray40"),
+    legend.position = "top"
+  )
+```
+
+### comparisons between gases
+
+```{r}
+multi_gas_plot <- df_long %>%
+  group_by(year, `greenhouse gas`) %>%
+  summarise(mean_emission = mean(emission, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = year, y = mean_emission, color = `greenhouse gas`, linetype = `greenhouse gas`)) +
+  geom_line(size = 1.2) +
+  labs(
+    title = "All Greenhouse Gas Emissions from Waste Sector",
+    subtitle = "Comparison of different gas types over time",
+    x = "Year",
+    y = "Emissions",
+    color = "Greenhouse Gas",
+    linetype = "Greenhouse Gas"
+  ) +
+  scale_x_continuous(
+    breaks = seq(1990, 2025, by = 5),
+    minor_breaks = seq(1990, 2025, by = 1)
+  ) +
+  scale_color_brewer(type = "qual", palette = "Set2") +
+  theme_light() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  guides(color = guide_legend(ncol = 2), linetype = guide_legend(ncol = 2))
+
+multi_gas_plot
+```
+
+### summary of my stats
+
+```{r}
+summary_stats <- total_ghg %>%
+  summarise(
+    Start_Year = min(year),
+    End_Year = max(year),
+    Start_Emission = first(emission),
+    End_Emission = last(emission),
+    Total_Reduction = first(emission) - last(emission),
+    Percent_Reduction = round(((first(emission) - last(emission)) / first(emission)) * 100, 1),
+    Average_Annual_Reduction = round((first(emission) - last(emission)) / (max(year) - min(year)), 1),
+    Correlation = round(correlation, 4)
+  )
+
+print("Summary Statistics for Total Emissions (Waste Sector):")
+print(summary_stats)
+```
